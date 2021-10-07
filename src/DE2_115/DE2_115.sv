@@ -138,6 +138,7 @@ module DE2_115 (
 
 logic [2:0] keydown, keyup;
 logic [3:0] random_value;
+logic [4:0] effect_state;
 
 Debounce deb0(
 	.i_in(KEY[0]),
@@ -152,26 +153,26 @@ Debounce deb0(
 Top top0(
 	.i_clk(CLOCK_50),
 	.i_start(keydown[0]),
-	// .i_start(keyup[0]),
 	.i_rst_n(KEY[1]),
 	.i_pause(keyup[1]),
 	// .i_pause(keydown[1]),
 	.i_speedup(keydown[2]),
-	.o_random_out(random_value)
+	.o_random_out(random_value),
+	.o_effect_out(effect_state)
 );
 
 SevenHexDecoder seven_dec0(
 	.i_hex(random_value),
+	.i_effectt(effect_state),
 	.o_seven_ten(HEX1),
-	.o_seven_one(HEX0)
+	.o_seven_one(HEX0),
+	.o_seven_key7(HEX7),
+	.o_seven_key6(HEX6),
+	.o_seven_key5(HEX5),
+	.o_seven_key4(HEX4),
+	.o_seven_key3(HEX3),
+	.o_seven_key2(HEX2)
 );
-
-assign HEX2 = '1;
-assign HEX3 = '1;
-assign HEX4 = '1;
-assign HEX5 = '1;
-assign HEX6 = '1;
-assign HEX7 = '1;
 
 `ifdef DUT_LAB1
 	initial begin

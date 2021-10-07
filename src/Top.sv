@@ -4,7 +4,8 @@ module Top (
 	input        i_rst_n, //key1
 	input 		 i_pause,  //key2
 	input        i_speedup,  //key3
-	output [3:0] o_random_out
+	output [3:0] o_random_out,
+	output [4:0] o_effect_out
 );
 
 // please check out the working example in lab1 README (or Top_exmaple.sv) first
@@ -37,17 +38,19 @@ module Top (
 	// parameter clk_limit3 = 26'd15000000;
 	// parameter clk_limit2 = 26'd25000000;
 	// parameter clk_limit1 = 26'd50000000; //1秒一個數字
+
+	// parameter clk_limit_effect = 26'd2000000;
 	// local test parameter (in order to adapt to local slow clk frequency)
 	parameter clk_limit7 = 26'd50;
 	parameter clk_limit6 = 26'd500;
 	parameter clk_limit5 = 26'd1000;
 	parameter clk_limit4 = 26'd2500;
 	parameter clk_limit3 = 26'd5000;
-	parameter clk_limit2 = 26'd10000;
-	parameter clk_limit1 = 26'd15000;
-	
+	parameter clk_limit2 = 26'd5000;
+	parameter clk_limit1 = 26'd7500;
 
-	//===========count it takes to transfer to next state : 顯示幾個數字之後跳下一個state========
+	parameter clk_limit_finish = 26'd500;
+//  ===========count it takes to transfer to next state : 顯示幾個數字之後跳下一個state========
 	parameter num_limit7 = 5'd30;
 	parameter num_limit6 = 5'd15;
 	parameter num_limit5 = 5'd7;
@@ -55,11 +58,12 @@ module Top (
 	parameter num_limit3 = 5'd3;
 	parameter num_limit2 = 5'd2;
 	parameter num_limit1 = 5'd2;
-// ==========output buffers=============
+
+	parameter num_limit_effect = 5'd20;
+//  ==========output buffers=============
 	logic [3:0] o_random_out_w, o_random_out_r;
-
-
-// ==================Registers & wires ============
+	logic [4:0] o_effect_out_w, o_effect_out_r;
+//  ==================Registers & wires ============
 	logic [3:0]  state_w, state_r;
 	logic [25:0] counter_clk_w, counter_clk_r;    // 數字與數字之間的counter, bits 數待確認。 若最慢的tempo是一秒跑一個數字，log2(50M) = 25.5，我先設 26 bits。 // given clock : 50M Hz
 	logic [4:0]  counter_num_w, counter_num_r;    // 一個state總共出現幾次數字的counter, bits 數待確認
@@ -67,8 +71,11 @@ module Top (
 	logic        state_en7, state_en6, state_en5, state_en4, state_en3, state_en2, state_en1;
 	logic [15:0] LFSR_w, LFSR_r; //LFSR Sequence, for random number
 
-// =============== Output assignments===========
-	assign o_random_out = o_random_out_r ;
+//  ==================special effect ===========================
+
+//  =============== Output assignments===========
+	assign o_random_out = o_random_out_r;
+	assign o_effect_out = o_effect_out_r;
 
 	assign clk_en7 = (counter_clk_r > clk_limit7) ? 1'b1 : 1'b0;
 	assign clk_en6 = (counter_clk_r > clk_limit6) ? 1'b1 : 1'b0;
@@ -85,18 +92,20 @@ module Top (
 	assign state_en2 = (counter_num_r >= num_limit3) ? 1'b1 : 1'b0;
 	assign state_en1 = (counter_num_r >= num_limit3) ? 1'b1 : 1'b0;
 	
+	assign clk_en_finish = (counter_clk_r > clk_limit_finish) ? 1'b1 : 1'b0;
+	assign effect_en = (counter_num_r >= num_limit_effect) ? 1'b1 : 1'b0;
 //  ==========Combinational Circuits==========
 always_comb begin 
 
 	//random seed never stops, even at IDLE state 
 	LFSR_w[14:0] = LFSR_r[15:1] ;
 	LFSR_w[15] = ( (LFSR_r[0] ^ LFSR_r[2]) ^ LFSR_r[3] ) ^ LFSR_r[5];
-
+	o_effect_out_w = 5'b0_0000; 
 	//FSM
 	case(state_r)
 	
 		S_idle: begin
-
+			o_effect_out_w = 5'b00000;
 			if ( i_start ) begin
 				state_w = S_tempo5; //一開始去tempo5
 				counter_clk_w = 26'd0 ;
@@ -617,23 +626,49 @@ always_comb begin
 		end
 
 		S_finished: begin
-			if(i_start) begin  //restart
+			// if(i_start) begin  //restart
+			// 	state_w = S_tempo5; 
+			// 	counter_clk_w = 26'd0;
+			// 	counter_num_w = 5'd0;
+			// 	o_random_out_w = o_random_out_r;
+			// end
+			// else begin
+			// 	state_w = state_r;
+			// 	counter_clk_w = 26'd0;
+			// 	counter_num_w = 5'd0;
+			// 	o_random_out_w = o_random_out_r;
+			// end
+			o_random_out_w = o_random_out_r;
+			if(effect_en && i_start) begin
 				state_w = S_tempo5; 
 				counter_clk_w = 26'd0;
 				counter_num_w = 5'd0;
-				o_random_out_w = o_random_out_r;
+				o_effect_out_w = 5'd0;
+			end
+			else if (effect_en && clk_en_finish) begin
+				state_w = state_r;
+				o_effect_out_w = 5'd0;
+				counter_clk_w = 26'd0;
+				counter_num_w = counter_num_r;
+			end
+			else if(clk_en_finish) begin
+				state_w = state_r;
+				o_effect_out_w = o_effect_out_r + 1;
+				counter_clk_w = 26'd0;
+				counter_num_w = counter_num_r + 1;
 			end
 			else begin
 				state_w = state_r;
-				counter_clk_w = 26'd0;
-				counter_num_w = 5'd0;
-				o_random_out_w = o_random_out_r;
+				o_effect_out_w = o_effect_out_r;
+				counter_clk_w = counter_clk_r + 1; 
+				counter_num_w = counter_num_r;
 			end
+
 		end	
 
 		default: begin
 
-			state_w = S_finished ;
+			state_w = S_idle ;
 			counter_clk_w = 26'd0 ;
 			counter_num_w = 5'd0 ;
 			o_random_out_w = 4'd0 ;
@@ -654,8 +689,8 @@ always_ff @( posedge i_clk or negedge i_rst_n ) begin
 		LFSR_r <= 16'b1111_1111_1111_1111 ; // all zeros will get stuck in the same state
 		counter_clk_r <= 26'd0 ;
 		counter_num_r <= 5'd0 ;
-		
 		o_random_out_r <= 4'd0 ;
+		o_effect_out_r <= 5'b0 ;
 	end
 
 	else begin
@@ -664,6 +699,7 @@ always_ff @( posedge i_clk or negedge i_rst_n ) begin
 		counter_num_r <= counter_num_w ;
 		LFSR_r <= LFSR_w ;
 		o_random_out_r <= o_random_out_w ;
+		o_effect_out_r <= o_effect_out_w ;
 	end
 	
 end

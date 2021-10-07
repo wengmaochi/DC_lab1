@@ -31,5 +31,14 @@
     2. simulate 成功開啟GUI, 但是數字卡在0，按下key0無反應。
 
 10/6 mao7
-    1. modified the if condition from if(state_en && clk_en) to if(state_en)
-    2. 
+    1. bug fixed : each key can work independently now.
+    2. add one state: S_finished
+
+10/7 mao7 
+    1. git repo is ready now.
+    2. complete the final effect.
+    3. add another output in TOP.sv and another input in sevendecoder.sv.
+    4. the latest code is on git now.
+    
+    
+     
